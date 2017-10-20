@@ -6,8 +6,8 @@ segments.
 from collections import namedtuple
 
 SEGMENT_LENGTHS = (
-    3, 3, 3, 3, 1, 1, 3, 1, 3, 1, 1, 1, 1, 1, 1, 1, 2, 1, 3, 2, 2, 1, 3, 1, 2,
-    1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 4, 1, 3,
+    3, 3, 3, 3, 1, 3, 1, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 3, 2, 2, 1, 3, 1,
+    2, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 3, 1, 3,
 )
 SIZE = round(sum(SEGMENT_LENGTHS) ** (1.0 / 3))  # Assumes a cube
 DIRECTIONS = {
