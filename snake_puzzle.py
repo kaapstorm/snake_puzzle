@@ -128,7 +128,9 @@ class Segment(object):
         return False
 
     def __str__(self):
-        return ' '.join((DIRECTIONS[self.direction], str(self.length), '>', str(self.next_segment)))
+        if self.next_segment:
+            return ' '.join((DIRECTIONS[self.direction], str(self.length), '>', str(self.next_segment)))
+        return ' '.join((DIRECTIONS[self.direction], str(self.length)))
 
 
 def solve(segment_lengths):
