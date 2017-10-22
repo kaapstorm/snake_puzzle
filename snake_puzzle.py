@@ -25,11 +25,10 @@ DIRECTIONS = {
 
 
 class Segment(object):
-    def __init__(self, coords, length, direction, initial_cube, segment_lengths):
+    def __init__(self, coords, length, direction, segment_lengths):
         self.coords = coords
         self.length = length
         self.direction = direction
-        self.initial_cube = initial_cube
         self.segment_lengths = segment_lengths
         self.next_segment = None
 
@@ -97,7 +96,7 @@ def is_last_segment(segment):
     return not segment.segment_lengths
 
 
-def possible_directions_gen(segment):
+def next_directions(segment):
     """
     The next segment can't go in the same direction as the given
     segment, and it can't go in the opposite direction.
@@ -105,29 +104,29 @@ def possible_directions_gen(segment):
     return (d for d in DIRECTIONS if segment.direction[1] != d[1])
 
 
-def is_valid(segment):
+def is_valid(initial_cube, segment):
     """
-    Determine whether this a valid segment position by recursively
+    Determine whether the given segment is a position by recursively
     checking the validity of possible next segments.
     """
     end_coords = get_coords(segment.coords, segment.direction, segment.length - 1)
     if are_coords_invalid(end_coords):
         return False
-    if crosses_occupied_block(segment.initial_cube, segment):
+    if crosses_occupied_block(initial_cube, segment):
         return False
     if is_last_segment(segment):
         return True
     # Recurse
     segment_length = segment.segment_lengths[0]
     next_segment_lengths = segment.segment_lengths[1:]
-    cube = get_cube_state(segment.initial_cube, segment)
-    for direction in possible_directions_gen(segment):
+    cube = get_cube_state(initial_cube, segment)
+    for direction in next_directions(segment):
         start_coords = get_coords(end_coords, direction, 1)
         if are_coords_invalid(start_coords):
             continue
-        segment.next_segment = Segment(start_coords, segment_length, direction, cube, next_segment_lengths)
+        segment.next_segment = Segment(start_coords, segment_length, direction, next_segment_lengths)
 
-        if is_valid(segment.next_segment):
+        if is_valid(cube, segment.next_segment):
             return True
     return False
 
@@ -145,8 +144,8 @@ def solve(segment_lengths):
             for z in range(SIZE):
                 coords = Coords(x, y, z)
                 for direction in DIRECTIONS:
-                    segment = Segment(coords, segment_length, direction, cube, next_segment_lengths)
-                    if is_valid(segment):
+                    segment = Segment(coords, segment_length, direction, next_segment_lengths)
+                    if is_valid(cube, segment):
                         return segment
     return 'No solution'
 
