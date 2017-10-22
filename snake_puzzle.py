@@ -10,33 +10,30 @@ SEGMENT_LENGTHS = (
     2, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 3, 1, 3,
 )
 SIZE = round(sum(SEGMENT_LENGTHS) ** (1.0 / 3))  # Assumes a cube
-DIRECTIONS = {
-    '+x': 'right',
-    '-x': 'left',
-    '+y': 'up',
-    '-y': 'down',
-    '+z': 'forwards',
-    '-z': 'backwards'
-}
 Coords = namedtuple('Coords', 'x y z')
+DIRECTIONS = {
+    # (operator, axis): English name
+    # axis will determine which axis is being traversed
+    # operator will increment or decrement a coordinate
+    (int.__add__, Coords(True, False, False)): 'right',
+    (int.__sub__, Coords(True, False, False)): 'left',
+    (int.__add__, Coords(False, True, False)): 'up',
+    (int.__sub__, Coords(False, True, False)): 'down',
+    (int.__add__, Coords(False, False, True)): 'forwards',
+    (int.__sub__, Coords(False, False, True)): 'backwards'
+}
 
 
 def get_coords(coords, direction, distance):
     """
     Returns the coordinates of the point from `coords` in `direction` at `distance`
     """
-    if direction == '+x':
-        return Coords(coords.x + distance, coords.y, coords.z)
-    if direction == '-x':
-        return Coords(coords.x - distance, coords.y, coords.z)
-    if direction == '+y':
-        return Coords(coords.x, coords.y + distance, coords.z)
-    if direction == '-y':
-        return Coords(coords.x, coords.y - distance, coords.z)
-    if direction == '+z':
-        return Coords(coords.x, coords.y, coords.z + distance)
-    if direction == '-z':
-        return Coords(coords.x, coords.y, coords.z - distance)
+    operator, axis = direction
+    return Coords(
+        operator(coords.x, distance) if axis.x else coords.x,
+        operator(coords.y, distance) if axis.y else coords.y,
+        operator(coords.z, distance) if axis.z else coords.z,
+    )
 
 
 def are_coords_invalid(coords):
@@ -50,24 +47,13 @@ def crosses_occupied_block(cube, segment):
     """
     Returns whether `segment` crosses a block in `cube` that is already occupied.
     """
-    if segment.direction == '+x':
-        return sum(cube[segment.coords.x + i][segment.coords.y][segment.coords.z]
-                   for i in range(segment.length))
-    if segment.direction == '-x':
-        return sum(cube[segment.coords.x - i][segment.coords.y][segment.coords.z]
-                   for i in range(segment.length))
-    if segment.direction == '+y':
-        return sum(cube[segment.coords.x][segment.coords.y + i][segment.coords.z]
-                   for i in range(segment.length))
-    if segment.direction == '-y':
-        return sum(cube[segment.coords.x][segment.coords.y - i][segment.coords.z]
-                   for i in range(segment.length))
-    if segment.direction == '+z':
-        return sum(cube[segment.coords.x][segment.coords.y][segment.coords.z + i]
-                   for i in range(segment.length))
-    if segment.direction == '-z':
-        return sum(cube[segment.coords.x][segment.coords.y][segment.coords.z - i]
-                   for i in range(segment.length))
+    operator, axis = segment.direction
+    return sum(
+        cube[operator(segment.coords.x, axis.x * i)]
+            [operator(segment.coords.y, axis.y * i)]
+            [operator(segment.coords.z, axis.z * i)]
+        for i in range(segment.length)
+    )
 
 
 def get_cube_state(initial_cube, segment):
@@ -75,19 +61,12 @@ def get_cube_state(initial_cube, segment):
     Returns the cube state after `segment` is added to `initial_state`
     """
     segment_cube = [[[0 for z in range(SIZE)] for y in range(SIZE)] for x in range(SIZE)]
+    operator, axis = segment.direction
     for i in range(segment.length):
-        if segment.direction == '+x':
-            segment_cube[segment.coords.x + i][segment.coords.y][segment.coords.z] = 1
-        if segment.direction == '-x':
-            segment_cube[segment.coords.x - i][segment.coords.y][segment.coords.z] = 1
-        if segment.direction == '+y':
-            segment_cube[segment.coords.x][segment.coords.y + i][segment.coords.z] = 1
-        if segment.direction == '-y':
-            segment_cube[segment.coords.x][segment.coords.y - i][segment.coords.z] = 1
-        if segment.direction == '+z':
-            segment_cube[segment.coords.x][segment.coords.y][segment.coords.z + i] = 1
-        if segment.direction == '-z':
-            segment_cube[segment.coords.x][segment.coords.y][segment.coords.z - i] = 1
+        x = operator(segment.coords.x, i) if axis.x else segment.coords.x
+        y = operator(segment.coords.y, i) if axis.y else segment.coords.y
+        z = operator(segment.coords.z, i) if axis.z else segment.coords.z
+        segment_cube[x][y][z] = 1
 
     return tuple(
         tuple(
@@ -116,7 +95,7 @@ class Segment(object):
         The next segment can't go in the same direction as this 
         segment, and it can't go in the opposite direction.
         """
-        return (d for d in DIRECTIONS if self.direction[1] not in d)
+        return (d for d in DIRECTIONS if self.direction[1] != d[1])
 
     def is_valid(self):
         """
