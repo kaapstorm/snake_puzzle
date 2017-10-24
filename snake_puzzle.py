@@ -9,140 +9,23 @@ SEGMENT_LENGTHS = (
     3, 3, 3, 3, 1, 3, 1, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 3, 2, 2, 1, 3, 1,
     2, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 3, 1, 3,
 )
-SIZE = round(sum(SEGMENT_LENGTHS) ** (1.0 / 3))  # Assumes a cube
-DIRECTIONS = {
-    '+x': 'right',
-    '-x': 'left',
-    '+y': 'up',
-    '-y': 'down',
-    '+z': 'forwards',
-    '-z': 'backwards'
-}
+
+
 Coords = namedtuple('Coords', 'x y z')
+DIRECTIONS = {
+    # (operator, axes): English name
+    # axes will determine which axis is being traversed
+    # operator will increment or decrement a coordinate
+    (int.__add__, Coords(True, False, False)): 'right',
+    (int.__sub__, Coords(True, False, False)): 'left',
+    (int.__add__, Coords(False, True, False)): 'up',
+    (int.__sub__, Coords(False, True, False)): 'down',
+    (int.__add__, Coords(False, False, True)): 'forwards',
+    (int.__sub__, Coords(False, False, True)): 'backwards'
+}
 
 
-def get_coords(coords, direction, distance):
-    """
-    Returns the coordinates of the point from `coords` in `direction` at `distance`
-    """
-    if direction == '+x':
-        return Coords(coords.x + distance, coords.y, coords.z)
-    if direction == '-x':
-        return Coords(coords.x - distance, coords.y, coords.z)
-    if direction == '+y':
-        return Coords(coords.x, coords.y + distance, coords.z)
-    if direction == '-y':
-        return Coords(coords.x, coords.y - distance, coords.z)
-    if direction == '+z':
-        return Coords(coords.x, coords.y, coords.z + distance)
-    if direction == '-z':
-        return Coords(coords.x, coords.y, coords.z - distance)
-
-
-def are_coords_invalid(coords):
-    """
-    Returns whether coords is a point outside the cube
-    """
-    return any(getattr(coords, c) < 0 or getattr(coords, c) >= SIZE for c in ('x', 'y', 'z'))
-
-
-def crosses_occupied_block(cube, segment):
-    """
-    Returns whether `segment` crosses a block in `cube` that is already occupied.
-    """
-    if segment.direction == '+x':
-        return sum(cube[segment.coords.x + i][segment.coords.y][segment.coords.z]
-                   for i in range(segment.length))
-    if segment.direction == '-x':
-        return sum(cube[segment.coords.x - i][segment.coords.y][segment.coords.z]
-                   for i in range(segment.length))
-    if segment.direction == '+y':
-        return sum(cube[segment.coords.x][segment.coords.y + i][segment.coords.z]
-                   for i in range(segment.length))
-    if segment.direction == '-y':
-        return sum(cube[segment.coords.x][segment.coords.y - i][segment.coords.z]
-                   for i in range(segment.length))
-    if segment.direction == '+z':
-        return sum(cube[segment.coords.x][segment.coords.y][segment.coords.z + i]
-                   for i in range(segment.length))
-    if segment.direction == '-z':
-        return sum(cube[segment.coords.x][segment.coords.y][segment.coords.z - i]
-                   for i in range(segment.length))
-
-
-def get_cube_state(initial_cube, segment):
-    """
-    Returns the cube state after `segment` is added to `initial_state`
-    """
-    segment_cube = [[[0 for z in range(SIZE)] for y in range(SIZE)] for x in range(SIZE)]
-    for i in range(segment.length):
-        if segment.direction == '+x':
-            segment_cube[segment.coords.x + i][segment.coords.y][segment.coords.z] = 1
-        if segment.direction == '-x':
-            segment_cube[segment.coords.x - i][segment.coords.y][segment.coords.z] = 1
-        if segment.direction == '+y':
-            segment_cube[segment.coords.x][segment.coords.y + i][segment.coords.z] = 1
-        if segment.direction == '-y':
-            segment_cube[segment.coords.x][segment.coords.y - i][segment.coords.z] = 1
-        if segment.direction == '+z':
-            segment_cube[segment.coords.x][segment.coords.y][segment.coords.z + i] = 1
-        if segment.direction == '-z':
-            segment_cube[segment.coords.x][segment.coords.y][segment.coords.z - i] = 1
-
-    return tuple(
-        tuple(
-            tuple(
-                initial_cube[x][y][z] + segment_cube[x][y][z]
-                for z in range(SIZE)
-            ) for y in range(SIZE)
-        ) for x in range(SIZE)
-    )
-
-
-class Segment(object):
-    def __init__(self, coords, length, direction, initial_cube, segment_lengths):
-        self.coords = coords
-        self.length = length
-        self.direction = direction
-        self.initial_cube = initial_cube
-        self.segment_lengths = segment_lengths
-        self.next_segment = None
-
-    def _is_last_segment(self):
-        return not self.segment_lengths
-
-    def _possible_directions_gen(self):
-        """
-        The next segment can't go in the same direction as this 
-        segment, and it can't go in the opposite direction.
-        """
-        return (d for d in DIRECTIONS if self.direction[1] not in d)
-
-    def is_valid(self):
-        """
-        Determine whether this a valid segment position by recursively
-        checking the validity of possible next segments.
-        """
-        end_coords = get_coords(self.coords, self.direction, self.length - 1)
-        if are_coords_invalid(end_coords):
-            return False
-        if crosses_occupied_block(self.initial_cube, self):
-            return False
-        if self._is_last_segment():
-            return True
-        # Recurse
-        segment_length = self.segment_lengths[0]
-        next_segment_lengths = self.segment_lengths[1:]
-        cube = get_cube_state(self.initial_cube, self)
-        for direction in self._possible_directions_gen():
-            start_coords = get_coords(end_coords, direction, 1)
-            if are_coords_invalid(start_coords):
-                continue
-            self.next_segment = Segment(start_coords, segment_length, direction, cube, next_segment_lengths)
-
-            if self.next_segment.is_valid():
-                return True
-        return False
+class Segment(namedtuple('Segment', 'coords direction length next_segment')):
 
     def __str__(self):
         if self.next_segment:
@@ -150,24 +33,153 @@ class Segment(object):
         return ' '.join((DIRECTIONS[self.direction], str(self.length)))
 
 
+def get_end_coords(coords, direction, length):
+    """
+    Returns the coordinates of the point from `coords` in `direction`
+    at `length`.
+    """
+    operator, axes = direction
+    return Coords(
+        operator(coords.x, length) if axes.x else coords.x,
+        operator(coords.y, length) if axes.y else coords.y,
+        operator(coords.z, length) if axes.z else coords.z,
+    )
+
+
+def are_coords_valid(coords, size):
+    """
+    Returns whether `coords` describe a point outside a cube of the
+    given `size`.
+    """
+    return all(0 <= getattr(coords, axis) < size for axis in ('x', 'y', 'z'))
+
+
+def crosses_occupied_block(coords, direction, length, cube):
+    """
+    Returns whether the segment described by `coords`, `direction` and
+    `length` crosses a block in `cube` that is already occupied.
+
+    >>> coords = Coords(0, 0, 0)
+    >>> direction = next(k for k, v in DIRECTIONS.items() if v == 'right')
+    >>> length = 1
+    >>> cube = (((1, 1), (1, 1)), ((1, 1), (1, 1)))
+    >>> bool(crosses_occupied_block(coords, direction, length, cube))
+    True
+    >>> cube = (((0, 0), (0, 0)), ((0, 0), (0, 0)))
+    >>> bool(crosses_occupied_block(coords, direction, length, cube))
+    False
+
+    """
+    operator, axes = direction
+    return sum(
+        cube[operator(coords.x, axes.x * i)]
+            [operator(coords.y, axes.y * i)]
+            [operator(coords.z, axes.z * i)]
+        for i in range(length)
+    )
+
+
+def get_cube_state(coords, direction, length, initial_cube):
+    """
+    Returns the cube state after the segment described by `coords`,
+    `direction` and `length` is added to `initial_cube`.
+
+    >>> coords = Coords(0, 0, 0)
+    >>> direction = next(k for k, v in DIRECTIONS.items() if v == 'right')
+    >>> length = 2
+    >>> initial_cube = (((0, 0), (0, 0)), ((0, 0), (0, 0)))
+    >>> get_cube_state(coords, direction, length, initial_cube)
+    (((1, 0), (0, 0)), ((1, 0), (0, 0)))
+
+    """
+    size = len(initial_cube)
+    segment_cube = [[[0 for z in range(size)] for y in range(size)] for x in range(size)]
+    operator, axes = direction
+    for i in range(length):
+        x = operator(coords.x, i) if axes.x else coords.x
+        y = operator(coords.y, i) if axes.y else coords.y
+        z = operator(coords.z, i) if axes.z else coords.z
+        segment_cube[x][y][z] = 1
+
+    return tuple(
+        tuple(
+            tuple(
+                initial_cube[x][y][z] + segment_cube[x][y][z]
+                for z in range(size)
+            ) for y in range(size)
+        ) for x in range(size)
+    )
+
+
+def next_directions(direction):
+    """
+    The next segment can't go in the same direction as the given
+    direction, and it can't go in the opposite direction.
+
+    >>> direction = next(k for k, v in DIRECTIONS.items() if v == 'right')
+    >>> directions = [DIRECTIONS[d] for d in next_directions(direction)]
+    >>> sorted(directions)
+    ['backwards', 'down', 'forwards', 'up']
+
+    """
+    return (d for d in DIRECTIONS if direction[1] != d[1])
+
+
+def get_valid_segment(coords, direction, length, initial_cube, segment_lengths):
+    """
+    Determine whether the given segment is a position by recursively
+    checking the validity of possible next segments.
+    """
+    size = len(initial_cube)
+    if not are_coords_valid(coords, size):
+        return None
+    end_coords = get_end_coords(coords, direction, length - 1)
+    if not are_coords_valid(end_coords, size):
+        return None
+    if crosses_occupied_block(coords, direction, length, initial_cube):
+        return None
+    if not segment_lengths:
+        return Segment(coords, direction, length, None)
+
+    # Recurse
+    cube = get_cube_state(coords, direction, length, initial_cube)
+    next_length = segment_lengths[0]
+    next_segment_lengths = segment_lengths[1:]
+    for next_direction in next_directions(direction):
+        next_coords = get_end_coords(end_coords, next_direction, 1)
+        next_segment = get_valid_segment(next_coords, next_direction, next_length, cube, next_segment_lengths)
+        if next_segment:
+            return Segment(coords, direction, length, next_segment)
+    return None
+
+
 def solve(segment_lengths):
     """
     Iterate all points in the cube, and return the first valid path of
     segments found.
+
+    >>> segment_lengths = (2, 1, 1, 1, 1, 1, 1)
+    >>> bool(solve(segment_lengths))
+    True
+    >>> segment_lengths = (2, 2, 1, 1, 1, 1)
+    >>> bool(solve(segment_lengths))
+    False
+
     """
-    cube = (((0,) * SIZE,) * SIZE,) * SIZE
-    segment_length = segment_lengths[0]
+    size = int(round(sum(segment_lengths) ** (1.0 / 3)))  # Assumes a cube
+    cube = (((0,) * size,) * size,) * size
+    next_length = segment_lengths[0]
     next_segment_lengths = segment_lengths[1:]
-    for x in range(SIZE):
-        for y in range(SIZE):
-            for z in range(SIZE):
+    for x in range(size):
+        for y in range(size):
+            for z in range(size):
                 coords = Coords(x, y, z)
                 for direction in DIRECTIONS:
-                    segment = Segment(coords, segment_length, direction, cube, next_segment_lengths)
-                    if segment.is_valid():
+                    segment = get_valid_segment(coords, direction, next_length, cube, next_segment_lengths)
+                    if segment:
                         return segment
-    return 'No solution'
+    return None
 
 
 if __name__ == '__main__':
-    print(solve(SEGMENT_LENGTHS))
+    print(solve(SEGMENT_LENGTHS) or 'No solution')
