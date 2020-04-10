@@ -4,6 +4,8 @@ Solves the snake puzzle by depth-wise search of a tree of possible
 segments.
 """
 from collections import namedtuple
+from multiprocessing import Pool, cpu_count
+from random import shuffle
 
 SEGMENT_LENGTHS = (
     3, 3, 3, 3, 1, 3, 1, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 3, 2, 2, 1, 3, 1,
@@ -29,7 +31,12 @@ class Segment(namedtuple('Segment', 'coords direction length next_segment')):
 
     def __str__(self):
         if self.next_segment:
-            return ' '.join((DIRECTIONS[self.direction], str(self.length), '>', str(self.next_segment)))
+            return ' '.join((
+                DIRECTIONS[self.direction],
+                str(self.length),
+                '>',
+                str(self.next_segment),
+            ))
         return ' '.join((DIRECTIONS[self.direction], str(self.length)))
 
 
@@ -122,7 +129,9 @@ def next_directions(direction):
     ['backwards', 'down', 'forwards', 'up']
 
     """
-    return (d for d in DIRECTIONS if direction[1] != d[1])
+    directions = [d for d in DIRECTIONS if direction[1] != d[1]]
+    shuffle(directions)
+    return directions
 
 
 def get_valid_segment(coords, direction, length, initial_cube, segment_lengths):
@@ -182,4 +191,8 @@ def solve(segment_lengths):
 
 
 if __name__ == '__main__':
-    print(solve(SEGMENT_LENGTHS) or 'No solution')
+    num_cores = cpu_count()
+    with Pool(num_cores) as p:
+        results = p.imap(solve, (SEGMENT_LENGTHS for _ in range(num_cores)))
+        for result in results:
+            print(result, "\n")
